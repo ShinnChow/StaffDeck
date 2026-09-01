@@ -64,6 +64,19 @@ def test_url_ready_does_not_require_reading_response_body(monkeypatch) -> None:
     assert dev._url_ready("http://127.0.0.1:5173/api/health") is True
 
 
+def test_url_ready_ignores_response_close_failure(monkeypatch) -> None:
+    dev = _load_script("dev")
+
+    class Response:
+        status = 200
+
+        def close(self):
+            raise ConnectionResetError("connection closed")
+
+    monkeypatch.setattr(dev.urllib.request, "urlopen", lambda *_args, **_kwargs: Response())
+    assert dev._url_ready("http://127.0.0.1:5173/api/health") is True
+
+
 def test_dev_cli_honors_packaged_app_port_range(monkeypatch) -> None:
     dev = _load_script("dev")
     monkeypatch.setenv("ULTRARAG_PORT_RANGE_START", "6200")
