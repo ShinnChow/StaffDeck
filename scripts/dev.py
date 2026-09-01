@@ -253,7 +253,6 @@ def _ensure_sandbox_runtime() -> None:
 def _url_ready(url: str) -> bool:
     try:
         with urllib.request.urlopen(url, timeout=2) as response:
-            response.read()
             return response.status < 500
     except (OSError, urllib.error.URLError):
         return False
@@ -334,25 +333,30 @@ def command_up(detach_flag: bool) -> int:
         return supervisor.main()
 
     pid = _start_detached(supervisor)
-    services = supervisor.build_services()
-    for service in services:
-        if service.health_url:
-            _wait_for_url(service.name, service.health_url, service.log_file)
-    if supervisor.SINGLE_PORT:
-        base = f"http://{supervisor.url_host(supervisor.APP_HOST)}:{supervisor.APP_PORT}"
-        _wait_for_url("chat", base + "/chat/", LOG_DIR / "app.log")
-        _wait_for_url("enterprise", base + "/enterprise/dashboard", LOG_DIR / "app.log")
-        print(f"Started StaffDeck supervisor ({pid})")
-        print(f"  app        {base}/chat/")
-        print(f"  enterprise {base}/enterprise/dashboard")
-        print(f"  api docs   {base}/docs")
-    else:
-        backend = f"http://{supervisor.url_host(supervisor.BACKEND_HOST)}:{supervisor.BACKEND_PORT}"
-        frontend = f"http://{supervisor.url_host(supervisor.ENTERPRISE_HOST)}:{supervisor.ENTERPRISE_PORT}"
-        print(f"Started StaffDeck supervisor ({pid})")
-        print(f"  backend    {backend}/docs")
-        print(f"  enterprise {frontend}/enterprise/dashboard")
-        print(f"  chat       {frontend}/chat/")
+    try:
+        services = supervisor.build_services()
+        for service in services:
+            if service.health_url:
+                _wait_for_url(service.name, service.health_url, service.log_file)
+        if supervisor.SINGLE_PORT:
+            base = f"http://{supervisor.url_host(supervisor.APP_HOST)}:{supervisor.APP_PORT}"
+            _wait_for_url("chat", base + "/chat/", LOG_DIR / "app.log")
+            _wait_for_url("enterprise", base + "/enterprise/dashboard", LOG_DIR / "app.log")
+            print(f"Started StaffDeck supervisor ({pid})")
+            print(f"  app        {base}/chat/")
+            print(f"  enterprise {base}/enterprise/dashboard")
+            print(f"  api docs   {base}/docs")
+        else:
+            backend = f"http://{supervisor.url_host(supervisor.BACKEND_HOST)}:{supervisor.BACKEND_PORT}"
+            frontend = f"http://{supervisor.url_host(supervisor.ENTERPRISE_HOST)}:{supervisor.ENTERPRISE_PORT}"
+            print(f"Started StaffDeck supervisor ({pid})")
+            print(f"  backend    {backend}/docs")
+            print(f"  enterprise {frontend}/enterprise/dashboard")
+            print(f"  chat       {frontend}/chat/")
+    except Exception:
+        # Do not leave a detached supervisor behind when readiness fails.
+        stop_services(verbose=False)
+        raise
     print(f"Logs: {LOG_DIR}")
     return 0
 

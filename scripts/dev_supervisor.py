@@ -225,7 +225,6 @@ class Service:
             return True
         try:
             with urllib.request.urlopen(self.health_url, timeout=2) as response:
-                response.read()
                 return 200 <= response.status < 500
         except Exception:
             return False
